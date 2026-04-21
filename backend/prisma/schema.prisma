@@ -18,6 +18,7 @@ model Admin {
 
   roles AdminRole[]
   passwordResetTokens AdminPasswordResetToken[]
+  twoFactorSessions TwoFactorSession[]
 }
 
 model Role {
@@ -74,6 +75,7 @@ model User {
   wishlist     Wishlist[]
   appointments Appointment[]
   passwordResetTokens PasswordResetToken[]
+  twoFactorSessions TwoFactorSession[]
 }
 
 model PasswordResetToken {
@@ -97,6 +99,24 @@ model AdminPasswordResetToken {
 
   admin Admin @relation(fields: [adminId], references: [id])
 
+  @@index([adminId])
+}
+
+model TwoFactorSession {
+  id          String          @id @default(uuid())
+  accountType TwoFactorTarget
+  method      TwoFactorMethod
+  userId      String?
+  adminId     String?
+  phone       String?
+  otpHash     String?
+  expiresAt   DateTime
+  createdAt   DateTime        @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+  admin Admin? @relation(fields: [adminId], references: [id])
+
+  @@index([userId])
   @@index([adminId])
 }
 
@@ -367,4 +387,14 @@ enum DiscountType {
 enum CouponStatus {
   ACTIVE
   EXPIRED
+}
+
+enum TwoFactorTarget {
+  USER
+  ADMIN
+}
+
+enum TwoFactorMethod {
+  PHONE_OTP
+  EMAIL_OTP
 }

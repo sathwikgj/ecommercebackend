@@ -81,9 +81,15 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(6),
 });
 
+const verifyTwoFactorSchema = z.object({
+  challengeId: z.string().uuid(),
+  otp: z.string().length(6),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyTwoFactorSchema,
 };

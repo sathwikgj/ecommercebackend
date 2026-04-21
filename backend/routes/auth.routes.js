@@ -6,6 +6,7 @@ const { rateLimit } = require("../middleware/rateLimit.middleware");
 const {
   registerSchema,
   loginSchema,
+  verifyTwoFactorSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } = require("../validations/auth.validation");
@@ -35,9 +36,21 @@ const resetPasswordLimiter = rateLimit({
   message: "Too many reset password attempts. Please try again later.",
 });
 
+const verifyTwoFactorLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  message: "Too many 2FA verification attempts. Please try again later.",
+});
+
 router.post("/register", registerLimiter, validate(registerSchema), controller.register);
 
 router.post("/login", loginLimiter, validate(loginSchema), controller.login);
+router.post(
+  "/verify-2fa",
+  verifyTwoFactorLimiter,
+  validate(verifyTwoFactorSchema),
+  controller.verifyTwoFactor
+);
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,

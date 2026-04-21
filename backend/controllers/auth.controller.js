@@ -5,11 +5,43 @@ const prisma = require("../prisma/client");
 const {
   sendRegistrationSampleEmail,
   sendPasswordResetEmail,
+  sendTwoFactorOtpEmail,
 } = require("../services/email.service");
 const { sendOtpToPhone, verifyPhoneOtp } = require("../services/otp.service");
 
 const isProduction = process.env.NODE_ENV === "production";
+const isTwoFactorEnabled = process.env.ENABLE_2FA === "true";
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+
+const buildAuthResponse = (user, tokenRole) => {
+  const tokenPayload = {
+    id: user.id,
+    role: tokenRole,
+  };
+
+  let adminAccess;
+  if (tokenRole === "admin" && user.roles) {
+    const roles = user.roles.map((item) => item.role.name);
+    const permissions = user.roles.flatMap((item) =>
+      item.role.permissions.map((permissionItem) => ({
+        role: item.role.name,
+        module: permissionItem.permission.module,
+        action: permissionItem.permission.action,
+      }))
+    );
+
+    tokenPayload.roles = roles;
+    tokenPayload.permissions = permissions;
+    adminAccess = { roles, permissions };
+  }
+
+  const token = generateToken(tokenPayload);
+  return {
+    message: "Login successful",
+    token,
+    ...(adminAccess ? { adminAccess } : {}),
+  };
+};
 
 const register = async (req, res) => {
   try {
@@ -191,34 +223,110 @@ const login = async (req, res) => {
       }
     }
 
-    const tokenPayload = {
-      id: user.id,
-      role: tokenRole,
-    };
+    if (
+      isTwoFactorEnabled &&
+      email &&
+      password &&
+      tokenRole === "admin"
+    ) {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    let adminAccess = undefined;
-    if (tokenRole === "admin") {
-      const roles = user.roles.map((item) => item.role.name);
-      const permissions = user.roles.flatMap((item) =>
-        item.role.permissions.map((permissionItem) => ({
-          role: item.role.name,
-          module: permissionItem.permission.module,
-          action: permissionItem.permission.action,
-        }))
-      );
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-      tokenPayload.roles = roles;
-      tokenPayload.permissions = permissions;
-      adminAccess = { roles, permissions };
+      const otpEmailResult = await sendTwoFactorOtpEmail({
+        toEmail: user.email,
+        name: user.name,
+        otp,
+      });
+      if (!otpEmailResult.sent) {
+        return res.status(400).json({ message: otpEmailResult.message });
+      }
+
+      await prisma.twoFactorSession.deleteMany({ where: { adminId: user.id } });
+      const session = await prisma.twoFactorSession.create({
+        data: {
+          accountType: "ADMIN",
+          method: "EMAIL_OTP",
+          adminId: user.id,
+          otpHash,
+          expiresAt,
+        },
+      });
+
+      return res.status(200).json({
+        message: "2FA OTP sent to registered email",
+        twoFactorRequired: true,
+        challengeId: session.id,
+      });
     }
 
-    const token = generateToken(tokenPayload);
+    return res.json(buildAuthResponse(user, tokenRole));
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
-    return res.json({
-      message: "Login successful",
-      token,
-      ...(adminAccess ? { adminAccess } : {}),
+const verifyTwoFactor = async (req, res) => {
+  try {
+    const { challengeId, otp } = req.body;
+    const session = await prisma.twoFactorSession.findUnique({
+      where: { id: challengeId },
+      include: {
+        user: true,
+        admin: {
+          include: {
+            roles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      include: { permission: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
+
+    if (!session) {
+      return res.status(400).json({ message: "Invalid 2FA challenge" });
+    }
+
+    if (Date.now() > session.expiresAt.getTime()) {
+      await prisma.twoFactorSession.delete({ where: { id: session.id } });
+      return res.status(400).json({ message: "2FA challenge expired" });
+    }
+
+    if (session.method === "PHONE_OTP") {
+      const otpVerification = await verifyPhoneOtp(session.phone, otp);
+      if (!otpVerification.verified) {
+        return res.status(400).json({ message: otpVerification.message });
+      }
+
+      const user = session.user;
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      await prisma.twoFactorSession.delete({ where: { id: session.id } });
+      return res.status(200).json(buildAuthResponse(user, "user"));
+    }
+
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    if (otpHash !== session.otpHash) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    const admin = session.admin;
+    if (!admin) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await prisma.twoFactorSession.delete({ where: { id: session.id } });
+    return res.status(200).json(buildAuthResponse(admin, "admin"));
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
   }
@@ -370,6 +478,7 @@ const resetPassword = async (req, res) => {
 module.exports = {
   register,
   login,
+  verifyTwoFactor,
   forgotPassword,
   resetPassword,
 };
