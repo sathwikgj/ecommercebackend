@@ -43,8 +43,17 @@ const registerSchema = z.object({
   name: z.string().min(3).max(50),
   email: z.string().email(),
   password: z.string().min(6),
-  phone: phoneSchema,
+  phone: phoneSchema.optional(),
   role: z.enum(["user", "admin"]).default("user"),
+}).refine((data) => {
+  if (data.role === "user") {
+    return Boolean(data.phone);
+  }
+
+  return true;
+}, {
+  message: "Phone is required when role is user",
+  path: ["phone"],
 });
 
 const loginSchema = z

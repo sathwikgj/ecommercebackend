@@ -12,10 +12,12 @@ model Admin {
   name  String
   email  String  @unique
   password  String
+  mustResetPassword Boolean @default(false)
   status  AdminStatus @default(ACTIVE)
   createdAt DateTime    @default(now())
 
   roles AdminRole[]
+  passwordResetTokens AdminPasswordResetToken[]
 }
 
 model Role {
@@ -71,6 +73,31 @@ model User {
   reviews      Review[]
   wishlist     Wishlist[]
   appointments Appointment[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model AdminPasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  adminId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
 }
 
 model Address {

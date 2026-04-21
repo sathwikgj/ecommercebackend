@@ -1,8 +1,11 @@
 const twilio = require("twilio");
 
+const getEnvValue = (primaryKey, fallbackKey) =>
+  process.env[primaryKey] || process.env[fallbackKey];
+
 const getTwilioClient = () => {
-  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  const twilioAccountSid = getEnvValue("TWILIO_ACCOUNT_SID", "Account_SID");
+  const twilioAuthToken = getEnvValue("TWILIO_AUTH_TOKEN", "Auth_Token");
   const twilioApiKey = process.env.TWILIO_API_KEY;
   const twilioApiSecret = process.env.TWILIO_API_SECRET;
 
@@ -41,7 +44,10 @@ const toE164Phone = (phone) => {
 };
 
 const sendOtpToPhone = async (phone) => {
-  const twilioVerifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  const twilioVerifyServiceSid = getEnvValue(
+    "TWILIO_VERIFY_SERVICE_SID",
+    "Service_SID"
+  );
   const client = getTwilioClient();
 
   if (!client || !twilioVerifyServiceSid) {
@@ -70,7 +76,10 @@ const sendOtpToPhone = async (phone) => {
 };
 
 const verifyPhoneOtp = async (phone, otp) => {
-  const twilioVerifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  const twilioVerifyServiceSid = getEnvValue(
+    "TWILIO_VERIFY_SERVICE_SID",
+    "Service_SID"
+  );
   const client = getTwilioClient();
 
   if (!client || !twilioVerifyServiceSid) {
