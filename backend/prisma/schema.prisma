@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id  String  @id @default(uuid())
+  name  String
+  email  String  @unique
+  password  String
+  status  AdminStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+
+  roles AdminRole[]
+}
+
+model Role {
+  id   String @id @default(uuid())
+  name String @unique
+
+  admins   AdminRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id  String @id @default(uuid())
+  module String
+  action String
+
+  roles RolePermission[]
+}
+
+model AdminRole {
+  adminId String
+  roleId  String
+
+  admin Admin @relation(fields: [adminId], references: [id])
+  role  Role  @relation(fields: [roleId], references: [id])
+
+  @@id([adminId, roleId])
+}
+
+model RolePermission {
+  roleId  String
+  permissionId String
+
+  role  Role  @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id  String   @id @default(uuid())
+  name    String
+  email    String   @unique
+  password   String
+  phone           String   @unique
+  isEmailVerified Boolean  @default(false)
+  isPhoneVerified Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  addresses    Address[]
+  socialLogins SocialLogin[]
+  orders       Order[]
+  cartItems    Cart[]
+  reviews      Review[]
+  wishlist     Wishlist[]
+  appointments Appointment[]
+}
+
+model Address {
+  id       String @id @default(uuid())
+  userId   String
+  doorNo   String
+  street   String
+  landmark String
+  pincode  String
+  phone    String
+  role String @default("USER")
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model SocialLogin {
+  id        String   @id @default(uuid())
+  userId    String
+  provider  Provider
+  accountId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id       String @id @default(uuid())
+  name     String
+  parentId String
+
+  parent   Category   @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  isOnSale    Boolean  @default(false)
+  isNew       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  images    ProductImage[]
+  variants  Variant[]
+  reviews   Review[]
+  discounts Discount[]
+  cartItems Cart[]
+  wishlists Wishlist[]
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String
+  url       String
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Variant {
+  id        String @id @default(uuid())
+  productId String
+  price     Float
+  discount  Float
+  stock     Int
+
+  product   Product @relation(fields: [productId], references: [id])
+  cartItems Cart[]
+}
+
+model Filter {
+  id     String        @id @default(uuid())
+  name   String
+  values FilterValue[]
+}
+
+model FilterValue {
+  id       String @id @default(uuid())
+  filterId String
+  value    String
+
+  filter Filter @relation(fields: [filterId], references: [id])
+}
+
+model Cart {
+  id        String @id @default(uuid())
+  userId    String
+  productId String
+  variantId String
+  quantity  Int
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  variant Variant @relation(fields: [variantId], references: [id])
+
+  @@unique([userId, productId, variantId])
+}
+
+model Wishlist {
+  id        String @id @default(uuid())
+  userId    String
+  productId String
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id     String      @id @default(uuid())
+  userId String
+  total  Float
+  status OrderStatus
+
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payment  Payment?
+  shipment Shipment?
+  returns  Return[]
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  productId String
+  variantId String
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @unique
+  method        PaymentMethod
+  status        PaymentStatus
+  amount        Float
+  transactionId String
+  provider      String
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Shipment {
+  id          String    @id @default(uuid())
+  orderId     String    @unique
+  trackingId  String
+  provider   String
+  status      String
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Return {
+  id      String @id @default(uuid())
+  orderId String
+  reason  String
+  status  String
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Review {
+  id        String       @id @default(uuid())
+  userId    String
+  productId String
+  rating    Int
+  comment   String
+  status    ReviewStatus
+  createdAt DateTime     @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Discount {
+  id        String       @id @default(uuid())
+  productId String
+  type      DiscountType
+  value     Float
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Coupon {
+  id        String       @id @default(uuid())
+  name      String
+  code      String       @unique
+  type      DiscountType
+  value     Float
+  minAmount Float
+  limit     Int
+  expiry    DateTime
+  status    CouponStatus
+}
+
+model AppointmentSlot {
+  id       String   @id @default(uuid())
+  date     DateTime
+  time     String
+  capacity Int
+
+  appointments Appointment[]
+}
+
+model Appointment {
+  id     String @id @default(uuid())
+  userId String
+  slotId String
+  status String
+  reason String
+
+  user User            @relation(fields: [userId], references: [id])
+  slot AppointmentSlot @relation(fields: [slotId], references: [id])
+}
+
+enum AdminStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Provider {
+  GOOGLE
+  INSTAGRAM
+  X
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  IN_PROGRESS
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  COD
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum DiscountType {
+  FIXED
+  PERCENTAGE
+}
+
+enum CouponStatus {
+  ACTIVE
+  EXPIRED
+}

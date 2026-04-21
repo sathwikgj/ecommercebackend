@@ -1,0 +1,33 @@
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+
+module.exports = {
+    admin : prisma.admin,
+    product : prisma.product,
+    address : prisma.address,
+    coupon : prisma.coupon,
+    order : prisma.order,
+    review : prisma.review,
+    user : prisma.user,
+    variant : prisma.variant,
+    wishlist : prisma.wishlist,
+    cart : prisma.cart,
+    category : prisma.category,
+    discount : prisma.discount,
+    productImage : prisma.productImage,
+    socialLogin : prisma.socialLogin,
+    orderItem : prisma.orderItem,
+    returnItem : prisma.returnItem,
+    shipment : prisma.shipment, 
+    payment : prisma.payment,
+    appointment : prisma.appointment,
+    role : prisma.role, 
+    permission : prisma.permission,
+    adminRole : prisma.adminRole,
+    rolePermission : prisma.rolePermission,
+    filter : prisma.filter,
+    filterValue : prisma.filterValue,
+    productFilter : prisma.productFilter,
+    return : prisma.return,
+    appointmentSlot : prisma.appointmentSlot,
+}
