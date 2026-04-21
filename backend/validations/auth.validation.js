@@ -1,8 +1,42 @@
 const { z } = require("zod");
 
+const normalizeIndianPhone = (value) => {
+  const raw = String(value).trim().replace(/[\s-]/g, "");
+  const digits = raw.replace(/\D/g, "");
+
+  if (/^[6-9]\d{9}$/.test(digits)) {
+    return `+91${digits}`;
+  }
+
+  if (/^91[6-9]\d{9}$/.test(digits)) {
+    return `+${digits}`;
+  }
+
+  if (/^0[6-9]\d{9}$/.test(digits)) {
+    return `+91${digits.slice(1)}`;
+  }
+
+  if (/^\+91[6-9]\d{9}$/.test(raw)) {
+    return raw;
+  }
+
+  return String(value);
+};
+
 const phoneSchema = z.preprocess(
-  (value) => (value === undefined || value === null ? value : String(value)),
-  z.string().min(10).max(15)
+  (value) => {
+    if (value === undefined || value === null) {
+      return value;
+    }
+
+    return normalizeIndianPhone(value);
+  },
+  z
+    .string()
+    .regex(
+      /^\+91[6-9]\d{9}$/,
+      "Enter a valid Indian mobile number (e.g. 9876543210 or +919876543210)"
+    )
 );
 
 const registerSchema = z.object({
@@ -29,4 +63,18 @@ const loginSchema = z
     message: "Provide email+password OR phone",
   });
 
-module.exports = { registerSchema, loginSchema };
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(20),
+  newPassword: z.string().min(6),
+});
+
+module.exports = {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+};
