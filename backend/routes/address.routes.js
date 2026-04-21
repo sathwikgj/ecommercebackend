@@ -1,8 +1,8 @@
 const router = require("express").Router();
 const controller = require("../controllers/address.controller");
-const auth = require("../middleware/auth.middleware");
+const { authMiddleware } = require("../middleware/auth.middleware");
 const role = require("../middleware/role.middleware");
-router.use(auth);
+router.use(authMiddleware);
 
 router.get("/",role("admin","user"), controller.getAddresses);
 router.get("/:id", role("admin","user"), controller.getAddress);

@@ -1,9 +1,9 @@
 const router = require("express").Router();
 const controller = require("../controllers/appointment.controller");
-const auth = require("../middleware/auth.middleware");
+const { authMiddleware } = require("../middleware/auth.middleware");
 const role = require("../middleware/role.middleware");
 
-router.use(auth);
+router.use(authMiddleware);
 
 router.get("/", role("admin","user"), controller.getAppointments);
 router.post("/", role("user"), controller.createAppointment);
