@@ -1,16 +1,31 @@
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
+const adminRouter = express.Router();
+const userRouter = express.Router();
 const controller = require("../controllers/appointment.controller");
 const { authMiddleware } = require("../middleware/auth.middleware");
 const role = require("../middleware/role.middleware");
 
 router.use(authMiddleware);
 
-router.get("/", role("admin","user"), controller.getAppointments);
-router.post("/", role("user"), controller.createAppointment);
-router.put("/:id", role("admin","user"), controller.updateAppointment);
-router.delete("/:id", role("admin","user"), controller.deleteAppointment);
-router.post("/:id/cancel", role("admin","user"), controller.cancelAppointment);
-router.post("/:id/reschedule", role("admin","user"), controller.rescheduleAppointment);
-router.get("/slots/availability", role("admin","user"), controller.getSlotAvailability);
+adminRouter.use(role("admin"));
+adminRouter.get("/", controller.getAppointments);
+adminRouter.put("/:id", controller.updateAppointment);
+adminRouter.delete("/:id", controller.deleteAppointment);
+adminRouter.post("/:id/cancel", controller.cancelAppointment);
+adminRouter.post("/:id/reschedule", controller.rescheduleAppointment);
+adminRouter.get("/slots/availability", controller.getSlotAvailability);
+
+userRouter.use(role("user"));
+userRouter.get("/", controller.getAppointments);
+userRouter.post("/", controller.createAppointment);
+userRouter.put("/:id", controller.updateAppointment);
+userRouter.delete("/:id", controller.deleteAppointment);
+userRouter.post("/:id/cancel", controller.cancelAppointment);
+userRouter.post("/:id/reschedule", controller.rescheduleAppointment);
+userRouter.get("/slots/availability", controller.getSlotAvailability);
+
+router.use("/admin", adminRouter);
+router.use("/user", userRouter);
 
 module.exports = router;
