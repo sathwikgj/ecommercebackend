@@ -394,7 +394,8 @@ const forgotPassword = async (req, res) => {
     return res.status(200).json({
       message: "Reset password email flow completed",
       emailStatus: emailResult.message,
-      ...(isProduction ? {} : { resetToken }),
+      // Useful during API testing before frontend reset page exists.
+      resetToken,
     });
   } catch (err) {
     return res.status(500).json({ message: "Server error" });
