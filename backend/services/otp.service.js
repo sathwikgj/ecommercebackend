@@ -1,118 +1,103 @@
 const twilio = require("twilio");
 
-const getEnvValue = (primaryKey, fallbackKey) =>
-  process.env[primaryKey] || process.env[fallbackKey];
-
 const getTwilioClient = () => {
-  const twilioAccountSid = getEnvValue("TWILIO_ACCOUNT_SID", "Account_SID");
-  const twilioAuthToken = getEnvValue("TWILIO_AUTH_TOKEN", "Auth_Token");
-  const twilioApiKey = process.env.TWILIO_API_KEY;
-  const twilioApiSecret = process.env.TWILIO_API_SECRET;
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
 
-  if (twilioAccountSid && twilioAuthToken) {
-    return twilio(twilioAccountSid, twilioAuthToken);
+  if (!accountSid || !authToken) {
+    console.error(" Twilio credentials missing in .env");
+    return null;
   }
 
-  if (twilioApiKey && twilioApiSecret && twilioAccountSid) {
-    return twilio(twilioApiKey, twilioApiSecret, { accountSid: twilioAccountSid });
-  }
-
-  return null;
+  return twilio(accountSid, authToken);
 };
-
 const toE164Phone = (phone) => {
   const raw = String(phone).trim().replace(/[\s-]/g, "");
   const digits = raw.replace(/\D/g, "");
 
-  if (/^\+91[6-9]\d{9}$/.test(raw)) {
-    return raw;
-  }
+  if (/^\+91[6-9]\d{9}$/.test(raw)) return raw;
+  if (/^[6-9]\d{9}$/.test(digits)) return `+91${digits}`;
+  if (/^91[6-9]\d{9}$/.test(digits)) return `+${digits}`;
+  if (/^0[6-9]\d{9}$/.test(digits)) return `+91${digits.slice(1)}`;
 
-  if (/^[6-9]\d{9}$/.test(digits)) {
-    return `+91${digits}`;
-  }
-
-  if (/^91[6-9]\d{9}$/.test(digits)) {
-    return `+${digits}`;
-  }
-
-  if (/^0[6-9]\d{9}$/.test(digits)) {
-    return `+91${digits.slice(1)}`;
-  }
-
-  return raw;
+  return raw; 
 };
-
 const sendOtpToPhone = async (phone) => {
-  const twilioVerifyServiceSid = getEnvValue(
-    "TWILIO_VERIFY_SERVICE_SID",
-    "Service_SID"
-  );
   const client = getTwilioClient();
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-  if (!client || !twilioVerifyServiceSid) {
+  if (!client || !serviceSid) {
     return {
       sent: false,
       message:
-        "Twilio OTP service is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_VERIFY_SERVICE_SID, and either TWILIO_AUTH_TOKEN or TWILIO_API_KEY + TWILIO_API_SECRET",
+        "Twilio not configured. Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID",
     };
   }
 
   try {
+    const formattedPhone = toE164Phone(phone);
+
     await client.verify.v2
-      .services(twilioVerifyServiceSid)
-      .verifications.create({ to: toE164Phone(phone), channel: "sms" });
+      .services(serviceSid)
+      .verifications.create({
+        to: formattedPhone,
+        channel: "sms",
+      });
+
+    return {
+      sent: true,
+      message: "OTP sent successfully",
+    };
   } catch (error) {
+    console.error(" Send OTP Error:", error.message);
+
     return {
       sent: false,
-      message: `OTP send failed: ${error.message}`,
+      message: error.message,
     };
   }
-
-  return {
-    sent: true,
-    message: "OTP sent to mobile number",
-  };
 };
-
 const verifyPhoneOtp = async (phone, otp) => {
-  const twilioVerifyServiceSid = getEnvValue(
-    "TWILIO_VERIFY_SERVICE_SID",
-    "Service_SID"
-  );
   const client = getTwilioClient();
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-  if (!client || !twilioVerifyServiceSid) {
+  if (!client || !serviceSid) {
     return {
       verified: false,
       message:
-        "Twilio OTP service is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_VERIFY_SERVICE_SID, and either TWILIO_AUTH_TOKEN or TWILIO_API_KEY + TWILIO_API_SECRET",
+        "Twilio not configured. Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID",
     };
   }
 
-  let verificationCheck;
   try {
-    verificationCheck = await client.verify.v2
-      .services(twilioVerifyServiceSid)
-      .verificationChecks.create({ to: toE164Phone(phone), code: otp });
+    const formattedPhone = toE164Phone(phone);
+
+    const response = await client.verify.v2
+      .services(serviceSid)
+      .verificationChecks.create({
+        to: formattedPhone,
+        code: otp,
+      });
+
+    if (response.status !== "approved") {
+      return {
+        verified: false,
+        message: "Invalid or expired OTP",
+      };
+    }
+
+    return {
+      verified: true,
+      message: "OTP verified successfully",
+    };
   } catch (error) {
+    console.error("Verify OTP Error:", error.message);
+
     return {
       verified: false,
-      message: `OTP verification failed: ${error.message}`,
+      message: error.message,
     };
   }
-
-  if (verificationCheck.status !== "approved") {
-    return {
-      verified: false,
-      message: "Invalid or expired OTP",
-    };
-  }
-
-  return {
-    verified: true,
-    message: "OTP verified successfully",
-  };
 };
 
 module.exports = {

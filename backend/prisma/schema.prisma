@@ -8,64 +8,35 @@ datasource db {
 }
 
 model Admin {
-  id  String  @id @default(uuid())
-  name  String
-  email  String  @unique
-  password  String
-  mustResetPassword Boolean @default(false)
-  status  AdminStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
+  id                   String   @id @default(uuid())
+  name                 String
+  email                String   @unique
+  password             String
+  phone String @unique
+  mustResetPassword    Boolean  @default(false)
+  status               AdminStatus @default(ACTIVE)
+  createdAt            DateTime @default(now())
 
-  roles AdminRole[]
-  passwordResetTokens AdminPasswordResetToken[]
-  twoFactorSessions TwoFactorSession[]
-}
+  twoFactorSecret      String?
+  isTwoFactorEnabled   Boolean @default(false)
 
-model Role {
-  id   String @id @default(uuid())
-  name String @unique
-
-  admins   AdminRole[]
-  permissions RolePermission[]
-}
-
-model Permission {
-  id  String @id @default(uuid())
-  module String
-  action String
-
-  roles RolePermission[]
-}
-
-model AdminRole {
-  adminId String
-  roleId  String
-
-  admin Admin @relation(fields: [adminId], references: [id])
-  role  Role  @relation(fields: [roleId], references: [id])
-
-  @@id([adminId, roleId])
-}
-
-model RolePermission {
-  roleId  String
-  permissionId String
-
-  role  Role  @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  @@id([roleId, permissionId])
+  roles                AdminRole[]
+  passwordResetTokens  AdminPasswordResetToken[]
+  twoFactorSessions    TwoFactorSession[]
 }
 
 model User {
-  id  String   @id @default(uuid())
-  name    String
-  email    String   @unique
-  password   String
-  phone           String   @unique
-  isEmailVerified Boolean  @default(false)
-  isPhoneVerified Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  password          String
+  phone             String   @unique
+  isEmailVerified   Boolean  @default(false)
+  isPhoneVerified   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  twoFactorSecret   String?
+  isTwoFactorEnabled Boolean @default(false)
 
   addresses    Address[]
   socialLogins SocialLogin[]
@@ -75,7 +46,28 @@ model User {
   wishlist     Wishlist[]
   appointments Appointment[]
   passwordResetTokens PasswordResetToken[]
-  twoFactorSessions TwoFactorSession[]
+  twoFactorSessions   TwoFactorSession[]
+}
+
+model TwoFactorSession {
+  id          String          @id @default(uuid())
+  accountType TwoFactorTarget
+  method      TwoFactorMethod
+
+  userId      String?
+  adminId     String?
+
+  phone       String?
+  otpHash     String?
+
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id])
+  admin Admin? @relation(fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([adminId])
 }
 
 model PasswordResetToken {
@@ -102,22 +94,40 @@ model AdminPasswordResetToken {
   @@index([adminId])
 }
 
-model TwoFactorSession {
-  id          String          @id @default(uuid())
-  accountType TwoFactorTarget
-  method      TwoFactorMethod
-  userId      String?
-  adminId     String?
-  phone       String?
-  otpHash     String?
-  expiresAt   DateTime
-  createdAt   DateTime        @default(now())
+model Role {
+  id   String @id @default(uuid())
+  name String @unique
 
-  user User? @relation(fields: [userId], references: [id])
-  admin Admin? @relation(fields: [adminId], references: [id])
+  admins     AdminRole[]
+  permissions RolePermission[]
+}
 
-  @@index([userId])
-  @@index([adminId])
+model Permission {
+  id     String @id @default(uuid())
+  module String
+  action String
+
+  roles RolePermission[]
+}
+
+model AdminRole {
+  adminId String
+  roleId  String
+
+  admin Admin @relation(fields: [adminId], references: [id])
+  role  Role  @relation(fields: [roleId], references: [id])
+
+  @@id([adminId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
 }
 
 model Address {
@@ -128,7 +138,7 @@ model Address {
   landmark String
   pincode  String
   phone    String
-  role String @default("USER")
+  role     String @default("USER")
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -145,10 +155,10 @@ model SocialLogin {
 model Category {
   id       String @id @default(uuid())
   name     String
-  parentId String
+  parentId String?   // ✅ FIX (was required → causes issues)
 
-  parent   Category   @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryTree")
+  parent   Category?   @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[]  @relation("CategoryTree")
 
   products Product[]
 }
@@ -184,25 +194,11 @@ model Variant {
   id        String @id @default(uuid())
   productId String
   price     Float
-  discount  Float
+  discount  Float @default(0)
   stock     Int
 
   product   Product @relation(fields: [productId], references: [id])
   cartItems Cart[]
-}
-
-model Filter {
-  id     String        @id @default(uuid())
-  name   String
-  values FilterValue[]
-}
-
-model FilterValue {
-  id       String @id @default(uuid())
-  filterId String
-  value    String
-
-  filter Filter @relation(fields: [filterId], references: [id])
 }
 
 model Cart {
@@ -234,7 +230,7 @@ model Order {
   id     String      @id @default(uuid())
   userId String
   total  Float
-  status OrderStatus
+  status OrderStatus @default(PENDING)
 
   user     User        @relation(fields: [userId], references: [id])
   items    OrderItem[]
@@ -271,7 +267,7 @@ model Shipment {
   id          String    @id @default(uuid())
   orderId     String    @unique
   trackingId  String
-  provider   String
+  provider    String
   status      String
   shippedAt   DateTime?
   deliveredAt DateTime?
@@ -294,7 +290,7 @@ model Review {
   productId String
   rating    Int
   comment   String
-  status    ReviewStatus
+  status    ReviewStatus @default(PENDING)
   createdAt DateTime     @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
@@ -319,7 +315,7 @@ model Coupon {
   minAmount Float
   limit     Int
   expiry    DateTime
-  status    CouponStatus
+  status    CouponStatus @default(ACTIVE)
 }
 
 model AppointmentSlot {
@@ -397,4 +393,6 @@ enum TwoFactorTarget {
 enum TwoFactorMethod {
   PHONE_OTP
   EMAIL_OTP
+  AUTH_APP
+  TOTP
 }

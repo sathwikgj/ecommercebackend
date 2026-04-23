@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const { validate, authMiddleware } = require("../middleware/auth.middleware");
-const { rateLimit } = require("../middleware/rateLimit.middleware");
+const controller = require("../controllers/auth.controller");
+
 const {
   registerSchema,
   loginSchema,
@@ -10,62 +11,21 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
 } = require("../validations/auth.validation");
-const controller = require("../controllers/auth.controller");
 
-const registerLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 10,
-  message: "Too many register attempts. Please try again later.",
-});
+router.post( "/register", validate(registerSchema),controller.register );
 
-const loginLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 20,
-  message: "Too many login attempts. Please try again later.",
-});
+router.post("/login",validate(loginSchema),controller.login);
 
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  message: "Too many forgot password attempts. Please try again later.",
-});
+router.post("/verify-2fa",validate(verifyTwoFactorSchema), controller.verifyTwoFactor );
 
-const resetPasswordLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 10,
-  message: "Too many reset password attempts. Please try again later.",
-});
+router.post( "/forgot-password", validate(forgotPasswordSchema), controller.forgotPassword);
 
-const verifyTwoFactorLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 15,
-  message: "Too many 2FA verification attempts. Please try again later.",
-});
+router.post( "/reset-password", validate(resetPasswordSchema), controller.resetPassword);
 
-router.post("/register", registerLimiter, validate(registerSchema), controller.register);
-
-router.post("/login", loginLimiter, validate(loginSchema), controller.login);
-router.post(
-  "/verify-2fa",
-  verifyTwoFactorLimiter,
-  validate(verifyTwoFactorSchema),
-  controller.verifyTwoFactor
-);
-router.post(
-  "/forgot-password",
-  forgotPasswordLimiter,
-  validate(forgotPasswordSchema),
-  controller.forgotPassword
-);
-router.post(
-  "/reset-password",
-  resetPasswordLimiter,
-  validate(resetPasswordSchema),
-  controller.resetPassword
-);
-
-router.get("/profile", authMiddleware, (req, res) => {
-  res.json({ message: "Profile data", user: req.user });
+router.get("/profile", authMiddleware, (req, res) => {res.json({
+    message: "Profile fetched successfully",
+    user: req.user,
+  });
 });
 
 module.exports = router;

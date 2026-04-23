@@ -78,11 +78,12 @@ const forgotPasswordSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(20),
+  email: z.string().email(),
   newPassword: z.string().min(6),
 });
 
 const verifyTwoFactorSchema = z.object({
-  challengeId: z.string().uuid(),
+  sessionId: z.string().uuid(),
   otp: z.string().length(6),
 });
 
