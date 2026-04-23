@@ -60,12 +60,9 @@ const register = async (req, res) => {
   }
 };
 
-/* ================= LOGIN ================= */
 const login = async (req, res) => {
   try {
     const { email, password, phone, otp } = req.body;
-
-    /* ===== EMAIL + PASSWORD LOGIN ===== */
     if (email && password) {
       let user = await prisma.user.findUnique({ where: { email } });
       let role = "user";
@@ -83,10 +80,7 @@ const login = async (req, res) => {
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid password" });
       }
-
-      /* ===== ADMIN 2FA ===== */
       if (role === "admin") {
-        // First time → setup QR
         if (!user.twoFactorSecret) {
           const { secret, qr } = await createQR(user.email);
 
@@ -101,8 +95,6 @@ const login = async (req, res) => {
             setup: true,
           });
         }
-
-        // Create TOTP session
         const session = await prisma.twoFactorSession.create({
           data: {
             accountType: "ADMIN",
@@ -121,8 +113,6 @@ const login = async (req, res) => {
 
       return res.json(buildAuthResponse(user, role));
     }
-
-    /* ===== PHONE LOGIN ===== */
     if (phone) {
       let user = await prisma.user.findFirst({ where: { phone } });
       let role = "user";
@@ -136,7 +126,6 @@ const login = async (req, res) => {
         return res.status(400).json({ message: "User not found" });
       }
 
-      // Send OTP
       if (!otp) {
         const result = await sendOtpToPhone(phone);
 
@@ -146,14 +135,11 @@ const login = async (req, res) => {
         });
       }
 
-      // Verify OTP
       const verify = await verifyPhoneOtp(phone, otp);
 
       if (!verify.verified) {
         return res.status(400).json({ message: verify.message });
       }
-
-      // Admin → create 2FA session after phone verification
       if (role === "admin") {
         const session = await prisma.twoFactorSession.create({
           data: {
@@ -181,7 +167,6 @@ const login = async (req, res) => {
   }
 };
 
-/* ================= VERIFY 2FA ================= */
 const verifyTwoFactor = async (req, res) => {
   try {
     const { sessionId, otp } = req.body;
@@ -201,20 +186,15 @@ const verifyTwoFactor = async (req, res) => {
     if (session.method === "TOTP") {
       const speakeasy = require("speakeasy");
 
-      // 🔥 Clean OTP (important)
       const cleanOtp = otp.replace(/\s/g, "");
 
-      // 🧠 DEBUG BLOCK
       const expectedOtp = speakeasy.totp({
         secret: admin.twoFactorSecret,
         encoding: "base32",
       });
-
-      console.log("====== TOTP DEBUG ======");
       console.log("DB Secret:", admin.twoFactorSecret);
       console.log("EXPECTED OTP:", expectedOtp);
       console.log("USER OTP:", cleanOtp);
-      console.log("========================");
 
       isValid = verifyOTP(admin.twoFactorSecret, cleanOtp);
 
@@ -271,25 +251,31 @@ const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user =
-      (await prisma.user.findUnique({ where: { email } })) ||
-      (await prisma.admin.findUnique({ where: { email } }));
+    const user = await prisma.user.findUnique({ where: { email } });
+    const admin = await prisma.admin.findUnique({ where: { email } });
 
-    if (!user) {
+    if (!user && !admin) {
       return res.status(404).json({ message: "User not found" });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    if (user.role === "admin") {
+    if (admin) {
       await prisma.adminPasswordResetToken.create({
         data: {
           token,
-          adminId: user.id,
+          adminId: admin.id,
           expiresAt,
         },
       });
+
+      await sendPasswordResetEmail({
+        toEmail: admin.email,
+        name: admin.name,
+        resetToken: token,
+      });
+
     } else {
       await prisma.passwordResetToken.create({
         data: {
@@ -298,22 +284,22 @@ const forgotPassword = async (req, res) => {
           expiresAt,
         },
       });
+
+      await sendPasswordResetEmail({
+        toEmail: user.email,
+        name: user.name,
+        resetToken: token,
+      });
     }
 
-    await sendPasswordResetEmail({
-      toEmail: user.email,
-      name: user.name,
-      resetToken: token,
-    });
-
     return res.json({ message: "Reset email sent" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================= RESET PASSWORD ================= */
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -373,8 +359,6 @@ const resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-/* ================= HELPER ================= */
 const buildAuthResponse = (user, role) => {
   const token = generateToken({
     id: user.id,
