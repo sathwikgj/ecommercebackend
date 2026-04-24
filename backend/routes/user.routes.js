@@ -11,13 +11,13 @@ router.use(authMiddleware);
 adminRouter.use(role("admin"));
 adminRouter.get("/", controller.getUsers);
 adminRouter.get("/:id", controller.getUser);
-adminRouter.post("/", controller.createUser);
+// adminRouter.post("/", controller.createUser);
 adminRouter.put("/:id", controller.updateUser);
 adminRouter.delete("/:id", controller.deleteUser);
 
 userRouter.use(role("user", "admin"));
 userRouter.get("/:id", controller.getUser);
-userRouter.post("/", controller.createUser);
+// userRouter.post("/", controller.createUser);
 userRouter.put("/:id", controller.updateUser);
 userRouter.delete("/:id", controller.deleteUser);
 

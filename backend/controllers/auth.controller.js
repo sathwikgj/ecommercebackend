@@ -15,21 +15,16 @@ const { createQR, verifyOTP } = require("../services/twoFactor.service");
 const register = async (req, res) => {
   try {
     const { name, email, password, phone, role = "user" } = req.body;
-
     if (!name || !email || !password || !phone) {
       return res.status(400).json({ message: "All fields required" });
     }
-
     const existingUser =
       (await prisma.user.findUnique({ where: { email } })) ||
       (await prisma.admin.findUnique({ where: { email } }));
-
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
-
     const hashedPassword = await hashPassword(password);
-
     if (role === "admin") {
       const admin = await prisma.admin.create({
         data: {
@@ -41,18 +36,13 @@ const register = async (req, res) => {
           isTwoFactorEnabled: false,
         },
       });
-
       await sendRegistrationSampleEmail({ toEmail: email, name });
-
       return res.json({ message: "Admin registered", admin });
     }
-
     const user = await prisma.user.create({
       data: { name, email, password: hashedPassword, phone },
     });
-
     await sendRegistrationSampleEmail({ toEmail: email, name });
-
     return res.json({ message: "User registered", user });
   } catch (err) {
     console.error(err);
@@ -66,16 +56,13 @@ const login = async (req, res) => {
     if (email && password) {
       let user = await prisma.user.findUnique({ where: { email } });
       let role = "user";
-
       if (!user) {
         user = await prisma.admin.findUnique({ where: { email } });
         role = "admin";
       }
-
       if (!user) {
         return res.status(400).json({ message: "User not found" });
       }
-
       const isMatch = await comparePassword(password, user.password);
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid password" });
@@ -83,12 +70,10 @@ const login = async (req, res) => {
       if (role === "admin") {
         if (!user.twoFactorSecret) {
           const { secret, qr } = await createQR(user.email);
-
           await prisma.admin.update({
             where: { id: user.id },
             data: { twoFactorSecret: secret },
           });
-
           return res.json({
             message: "Scan QR with Google Authenticator",
             qr,
@@ -103,40 +88,32 @@ const login = async (req, res) => {
             expiresAt: new Date(Date.now() + 5 * 60 * 1000),
           },
         });
-
         return res.json({
           message: "Enter OTP from Authenticator",
           requires2FA: true,
           sessionId: session.id,
         });
       }
-
       return res.json(buildAuthResponse(user, role));
     }
     if (phone) {
       let user = await prisma.user.findFirst({ where: { phone } });
       let role = "user";
-
       if (!user) {
         user = await prisma.admin.findFirst({ where: { phone } });
         role = "admin";
       }
-
       if (!user) {
         return res.status(400).json({ message: "User not found" });
       }
-
       if (!otp) {
         const result = await sendOtpToPhone(phone);
-
         return res.json({
           message: result.message,
           otpSent: result.sent,
         });
       }
-
       const verify = await verifyPhoneOtp(phone, otp);
-
       if (!verify.verified) {
         return res.status(400).json({ message: verify.message });
       }
@@ -227,26 +204,31 @@ const verifyTwoFactor = async (req, res) => {
 const verifyPhoneLogin = async (req, res) => {
   try {
     const { phone, otp } = req.body;
-
     const user = await prisma.user.findFirst({ where: { phone } });
-
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
-
     const verify = await verifyPhoneOtp(phone, otp);
-
     if (!verify.verified) {
       return res.status(400).json({ message: verify.message });
     }
-
     return res.json(buildAuthResponse(user, "user"));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
+const buildAuthResponse = (user, role) => {
+  const token = generateToken({
+    id: user.id,
+    role,
+  });
 
+  return {
+    message: "Login successful",
+    token,
+  };
+};
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -359,17 +341,7 @@ const resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-const buildAuthResponse = (user, role) => {
-  const token = generateToken({
-    id: user.id,
-    role,
-  });
 
-  return {
-    message: "Login successful",
-    token,
-  };
-};
 
 module.exports = {
   register,

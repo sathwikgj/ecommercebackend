@@ -13,20 +13,11 @@ const {
 } = require("../validations/auth.validation");
 
 router.post( "/register", validate(registerSchema),controller.register );
-
 router.post("/login",validate(loginSchema),controller.login);
-
 router.post("/verify-2fa",validate(verifyTwoFactorSchema), controller.verifyTwoFactor );
 router.post("/verify-phone",validate(loginSchema), controller.verifyPhoneLogin);
-
 router.post( "/forgot-password", validate(forgotPasswordSchema), controller.forgotPassword);
-
 router.post( "/reset-password", validate(resetPasswordSchema), controller.resetPassword);
 
-router.get("/profile", authMiddleware, (req, res) => {res.json({
-    message: "Profile fetched successfully",
-    user: req.user,
-  });
-});
 
 module.exports = router;

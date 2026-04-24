@@ -4,23 +4,16 @@ const normalizeIndianPhone = (value) => {
   const raw = String(value).trim().replace(/[\s-]/g, "");
   const digits = raw.replace(/\D/g, "");
 
-  if (/^[6-9]\d{9}$/.test(digits)) {
-    return `+91${digits}`;
-  }
+  if (/^[6-9]\d{9}$/.test(digits)) { return `+91${digits}` }
 
-  if (/^91[6-9]\d{9}$/.test(digits)) {
-    return `+${digits}`;
-  }
+  if (/^91[6-9]\d{9}$/.test(digits)) { return `+${digits}` }
 
-  if (/^0[6-9]\d{9}$/.test(digits)) {
-    return `+91${digits.slice(1)}`;
-  }
+  if (/^0[6-9]\d{9}$/.test(digits)) { return `+91${digits.slice(1)}` }
 
-  if (/^\+91[6-9]\d{9}$/.test(raw)) {
-    return raw;
-  }
+  if (/^\+91[6-9]\d{9}$/.test(raw)) { return raw 
 
   return String(value);
+  }
 };
 
 const phoneSchema = z.preprocess(
@@ -45,16 +38,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
   phone: phoneSchema.optional(),
   role: z.enum(["user", "admin"]).default("user"),
-}).refine((data) => {
-  if (data.role === "user") {
-    return Boolean(data.phone);
-  }
-
-  return true;
-}, {
-  message: "Phone is required when role is user",
-  path: ["phone"],
-});
+ });
 
 const loginSchema = z
   .object({
@@ -73,17 +57,17 @@ const loginSchema = z
   });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
 });
 
 const resetPasswordSchema = z.object({
   token: z.string().min(20),
-  email: z.string().email(),
+  email: z.email(),
   newPassword: z.string().min(6),
 });
 
 const verifyTwoFactorSchema = z.object({
-  sessionId: z.string().uuid(),
+  sessionId: z.string(),
   otp: z.string().length(6),
 });
 
