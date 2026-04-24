@@ -2,7 +2,7 @@ const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
 const port = process.env.PORT || 3000;
-
+// const react= require("react");
 const express = require("express");
 const app = express();
 
@@ -21,7 +21,6 @@ app.use("/api/appointments", require("./routes/appointment.routes"));
 app.use("/api/address", require("./routes/address.routes"));
 app.use("/api/cart", require("./routes/cart.routes")); 
 
-// Role-based separated route folders (same controller logic, organized by role)
 app.use("/api/admin/users", require("./routes/admin/user.routes"));
 app.use("/api/admin/orders", require("./routes/admin/order.routes"));
 app.use("/api/admin/address", require("./routes/admin/address.routes"));

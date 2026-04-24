@@ -8,7 +8,6 @@ const { authMiddleware } = require("../middleware/auth.middleware");
 
 router.use(authMiddleware);
 
-// Admin-only user management routes
 adminRouter.use(role("admin"));
 adminRouter.get("/", controller.getUsers);
 adminRouter.get("/:id", controller.getUser);
@@ -16,9 +15,11 @@ adminRouter.post("/", controller.createUser);
 adminRouter.put("/:id", controller.updateUser);
 adminRouter.delete("/:id", controller.deleteUser);
 
-// User self-service routes
 userRouter.use(role("user", "admin"));
+userRouter.get("/:id", controller.getUser);
+userRouter.post("/", controller.createUser);
 userRouter.put("/:id", controller.updateUser);
+userRouter.delete("/:id", controller.deleteUser);
 
 router.use("/admin", adminRouter);
 router.use("/user", userRouter);
